@@ -27,5 +27,5 @@ def query_snowflake(query):
         offset += limit
 
 
-
+writer=None
 query_snowflake("SELECT city, state, ip_address, login_status, user_id, event_time, date_trunc('DAY' ,event_time) as DAY from security.prod.azure_ad_signin_v where event_time > dateadd(day, -365, current_timestamp)")
