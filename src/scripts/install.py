@@ -29,10 +29,10 @@ import boto3
 
 from runners.config import ALERT_QUERY_POSTFIX, ALERT_SQUELCH_POSTFIX
 from runners.config import VIOLATION_QUERY_POSTFIX
-from runners.config import DATABASE, DATA_SCHEMA, RULES_SCHEMA, RESULTS_SCHEMA
+from runners.config import DATABASE, DATA_SCHEMA, RULES_SCHEMA
 
 from runners.helpers import log
-from runners.helpers.dbconfig import USER, ROLE, WAREHOUSE
+from runners.helpers.dbconfig import USER, ROLE, ADMIN_ROLE, WAREHOUSE
 from runners.helpers.dbconnect import snowflake_connect
 
 
@@ -52,12 +52,22 @@ def read_queries(file):
 
 
 GRANT_PRIVILEGES_QUERIES = [
-    f'GRANT ALL PRIVILEGES ON ALL SCHEMAS IN DATABASE {DATABASE} TO ROLE {ROLE}',
-    f'GRANT ALL PRIVILEGES ON ALL VIEWS IN SCHEMA {DATA_SCHEMA} TO ROLE {ROLE}',
-    f'GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA {DATA_SCHEMA} TO ROLE {ROLE}',
-    f'GRANT OWNERSHIP ON ALL VIEWS IN SCHEMA {RULES_SCHEMA} TO ROLE {ROLE}',
-    f'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA {DATA_SCHEMA} TO ROLE {ROLE}',
-    f'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA {RESULTS_SCHEMA} TO ROLE {ROLE}',
+    f'ALTER SCHEMA data ENABLE MANAGED ACCESS',
+    f'GRANT SELECT ON FUTURE VIEWS IN SCHEMA data TO ROLE {ROLE}',
+
+    f'ALTER SCHEMA rules ENABLE MANAGED ACCESS',
+    f'GRANT SELECT ON FUTURE VIEWS IN SCHEMA rules TO ROLE {ROLE}',
+    f'GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA rules TO ROLE {ADMIN_ROLE}',
+
+    f'GRANT SELECT ON ALL TABLES IN SCHEMA results TO ROLE {ADMIN_ROLE}',
+    f'GRANT INSERT ON ALL TABLES IN SCHEMA results TO ROLE {ROLE}',
+
+    # f'GRANT ALL PRIVILEGES ON ALL SCHEMAS IN DATABASE {DATABASE} TO ROLE {ROLE}',
+    # f'GRANT ALL PRIVILEGES ON ALL VIEWS IN SCHEMA {DATA_SCHEMA} TO ROLE {ROLE}',
+    # f'GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA {DATA_SCHEMA} TO ROLE {ROLE}',
+    # f'GRANT OWNERSHIP ON ALL VIEWS IN SCHEMA {RULES_SCHEMA} TO ROLE {ROLE}',
+    # f'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA {DATA_SCHEMA} TO ROLE {ROLE}',
+    # f'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA {RESULTS_SCHEMA} TO ROLE {ROLE}',
 ]
 
 WAREHOUSE_QUERIES = [
@@ -390,7 +400,11 @@ def do_kms_encrypt(kms, *args: str) -> List[str]:
     ]
 
 
-def main(admin_role="accountadmin", samples=True, pk_passwd=None, jira=None):
+def main(admin_role=ADMIN_ROLE, samples=True, pk_passwd=None, jira=None):
+    global ADMIN_ROLE
+    if admin_role != ADMIN_ROLE:
+        ADMIN_ROLE = admin_role
+
     ctx, account, region, do_attempt = login()
 
     do_attempt(f"Use role {admin_role}", f"USE ROLE {admin_role}")

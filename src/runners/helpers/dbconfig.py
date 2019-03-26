@@ -10,6 +10,7 @@ PRIVATE_KEY_PASSWORD = os.environ.get('PRIVATE_KEY_PASSWORD', '').encode('utf-8'
 PRIVATE_KEY = b64decode(os.environ['PRIVATE_KEY']) if os.environ.get('PRIVATE_KEY') else None
 
 ROLE = os.environ.get('SA_ROLE', "snowalert")
+ADMIN_ROLE = os.environ.get('SA_ADMIN_ROLE', "accountadmin")
 WAREHOUSE = os.environ.get('SA_WAREHOUSE', "snowalert")
 DATABASE = os.environ.get('SA_DATABASE', "snowalert")
 
