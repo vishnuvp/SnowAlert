@@ -15,12 +15,6 @@ class ApiError extends Error {
   }
 }
 
-const tokenConfig = (token: string | null) => ({
-  headers: {
-    Authorization: token,
-  },
-});
-
 const authHeader = () => {
   const account = localStorage.getItem('account') || '';
   const auth = JSON.parse(localStorage.getItem('auth') || '{}')[account];
@@ -76,18 +70,6 @@ export const register = (name: string, email: string, organizationId: number, pa
     .then(handleResponse)
     .catch(handleError);
 
-export const loadNotifications = (token: string | null) =>
-  axios
-    .get(`${BACKEND_URL}/notification`, tokenConfig(token))
-    .then(handleResponse)
-    .catch(handleError);
-
-export const clearNotifications = (token: string | null) =>
-  axios
-    .delete(`${BACKEND_URL}/notification`, tokenConfig(token))
-    .then(handleResponse)
-    .catch(handleError);
-
 export const saveRule = (rule: SnowAlertRule) =>
   axios
     .post('/api/sa/rules', rule, {headers: authHeader()})
@@ -109,6 +91,12 @@ export const renameRule = (rule: SnowAlertRule) =>
 export const loadSnowAlertRules = () =>
   axios
     .get('/api/sa/rules', {headers: authHeader()})
+    .then(handleResponse)
+    .catch(handleError);
+
+export const loadSnowAlertData = () =>
+  axios
+    .get('/api/sa/data', {headers: authHeader()})
     .then(handleResponse)
     .catch(handleError);
 

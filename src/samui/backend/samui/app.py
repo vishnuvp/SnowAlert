@@ -5,7 +5,7 @@ import logbook
 
 from samui import config
 from samui.gunicorn_conf import host, port
-from samui.api import rules_api
+from samui.api import rules_api, data_api
 from samui.api.oauth import oauth_api
 from samui.views import app_views
 
@@ -24,6 +24,7 @@ app.config.from_object(config.FlaskConfig)  # type: ignore
 app.debug = config.DEBUG
 
 app.register_blueprint(app_views)
+app.register_blueprint(data_api, url_prefix='/api/sa/data')
 app.register_blueprint(rules_api, url_prefix='/api/sa/rules')
 app.register_blueprint(oauth_api, url_prefix='/api/sa/oauth')
 

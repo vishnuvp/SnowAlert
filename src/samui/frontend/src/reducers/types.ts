@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {RouterState} from 'react-router-redux';
 import {Policy, Query, Suppression} from '../store/rules';
+import {Baseline} from '../store/data';
 
 export interface AuthDetails {
   readonly token: string | null;
@@ -72,11 +73,28 @@ export interface SnowAlertRulesState {
   readonly filter: string;
 }
 
+export interface BaselinePayload {
+  table_name: string;
+  comment: string;
+  rows: number;
+}
+
+export interface SAData {
+  baselines: ReadonlyArray<BaselinePayload>;
+}
+
+export interface SADataState {
+  readonly isFetching: boolean;
+  readonly selected: string | null;
+  readonly baselines: ReadonlyArray<Baseline>;
+}
+
 export interface State {
   readonly auth: AuthState;
   readonly router: RouterState;
   readonly viewport: ViewportState;
   readonly rules: SnowAlertRulesState;
+  readonly data: SADataState;
 }
 
 export interface RouterData {

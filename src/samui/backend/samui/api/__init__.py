@@ -14,6 +14,7 @@ import logbook
 logger = logbook.Logger(__name__)
 
 rules_api = Blueprint('rules', __name__)
+data_api = Blueprint('data', __name__)
 
 SECRET = os.environ.get("SECRET", "")
 
@@ -31,27 +32,47 @@ def replace_config_vals(rule_body: str) -> str:
     return rule_body
 
 
-@rules_api.route('', methods=['GET'])
-def get_rules():
+@data_api.route('', methods=['GET'])
+def get_baselines():
     if not hmac.compare_digest(request.cookies.get("sid", ""), SECRET):
         return jsonify(rules=[])
-
-    rule_type = request.args.get('type', '%').upper()
-    rule_target = request.args.get('target', '%').upper()
-
-    logger.info(f'Fetching {rule_target}_{rule_type} rules...')
 
     oauth = json.loads(request.headers.get('Authorization') or '{}')
     if not oauth and not dbconfig.PRIVATE_KEY:
         return jsonify(success=False, message='please log in')
 
     ctx = db.connect(oauth=oauth, run_preflight_checks=False)
-    rules = db.fetch(ctx, f"SHOW VIEWS LIKE '%_{rule_target}\_{rule_type}' IN rules")
+
+    return jsonify(success=True, baselines=[{
+        'table_name': baseline['name'],
+        'comment': baseline['comment'],
+        'rows': baseline['rows'],
+    } for baseline in (
+        db.fetch(ctx, f"SHOW TABLES LIKE '%_BASELINE' IN data")
+    )])
+
+
+@rules_api.route('', methods=['GET'])
+def get_rules():
+    if not hmac.compare_digest(request.cookies.get("sid", ""), SECRET):
+        return jsonify(rules=[])
+
+    oauth = json.loads(request.headers.get('Authorization') or '{}')
+    if not oauth and not dbconfig.PRIVATE_KEY:
+        return jsonify(success=False, message='please log in')
+
+    rule_type = request.args.get('type', '%').upper()
+    rule_target = request.args.get('target', '%').upper()
+
+    logger.info(f'Fetching {rule_target}_{rule_type} rules...')
+
+    ctx = db.connect(oauth=oauth, run_preflight_checks=False)
 
     return jsonify(
         rules=[
             {
-                "title": re.sub('_(alert|violation|policy)_(query|suppression|definition)$', '', rule['name'], flags=re.I),
+                "title": re.sub('_(alert|violation|policy)_(query|suppression|definition)$', '',
+                                rule['name'], flags=re.I),
                 "target": rule['name'].split('_')[-2].upper(),
                 "type": rule['name'].split('_')[-1].upper(),
                 "body": replace_config_vals(rule['text']),
@@ -60,7 +81,9 @@ def get_rules():
                     if rule['name'].endswith("_POLICY_DEFINITION")
                     else None
                 ),
-            } for rule in rules if (
+            } for rule in (
+                db.fetch(ctx, f"SHOW VIEWS LIKE '%_{rule_target}\_{rule_type}' IN rules")
+            ) if (
                 rule['name'].endswith("_ALERT_QUERY")
                 or rule['name'].endswith("_ALERT_SUPPRESSION")
                 or rule['name'].endswith("_VIOLATION_QUERY")

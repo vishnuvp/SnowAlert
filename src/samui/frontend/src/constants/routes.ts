@@ -6,6 +6,7 @@ export const REGISTER = '/user/register';
 export const REGISTER_RESULT = '/user/register-result';
 
 export const POLICIES = '/dashboard/policies';
+export const BASELINES = '/dashboard/baselines';
 export const ALERTS = '/dashboard/alerts';
 export const VIOLATIONS = '/dashboard/violations';
 
