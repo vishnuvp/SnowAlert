@@ -45,7 +45,7 @@ def get_rules():
     if not oauth and not dbconfig.PRIVATE_KEY:
         return jsonify(success=False, message='please log in')
 
-    ctx = db.connect(oauth=oauth, run_preflight_checks=False)
+    ctx = db.connect(oauth=oauth)
     rules = db.fetch(ctx, f"SHOW VIEWS LIKE '%_{rule_target}\_{rule_type}' IN rules")
 
     return jsonify(
@@ -87,7 +87,7 @@ def create_rule():
 
     try:
         oauth = json.loads(request.headers.get('Authorization') or '{}')
-        ctx = db.connect(oauth=oauth, run_preflight_checks=False)
+        ctx = db.connect(oauth=oauth)
         ctx.cursor().execute(rule_body).fetchall()
 
         try:  # errors expected, e.g. if permissions managed by future grants on schema
@@ -121,7 +121,7 @@ def delete_rule():
 
     try:
         oauth = json.loads(request.headers.get('Authorization') or '{}')
-        ctx = db.connect(oauth=oauth, run_preflight_checks=False)
+        ctx = db.connect(oauth=oauth)
         view_name = f"{rule_title}_{rule_target}_{rule_type}"
         new_view_name = f"{rule_title}_{rule_target}_{rule_type}_DELETED"
         ctx.cursor().execute(
@@ -146,7 +146,7 @@ def rename_rule():
 
     try:
         oauth = json.loads(request.headers.get('Authorization') or '{}')
-        ctx = db.connect(oauth=oauth, run_preflight_checks=False)
+        ctx = db.connect(oauth=oauth)
         view_name = f"{rule_title}_{rule_target}_{rule_type}"
         new_view_name = f"{new_title}_{rule_target}_{rule_type}"
         ctx.cursor().execute(

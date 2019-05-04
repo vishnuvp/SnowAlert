@@ -13,7 +13,7 @@ from snowflake.connector.network import MASTER_TOKEN_EXPIRED_GS_CODE, OAUTH_AUTH
 
 from . import log
 from .auth import load_pkb, oauth_refresh
-from .dbconfig import ACCOUNT, DATABASE, USER, WAREHOUSE, PRIVATE_KEY, PRIVATE_KEY_PASSWORD, TIMEOUT
+from .dbconfig import ACCOUNT, ROLE, DATABASE, USER, WAREHOUSE, PRIVATE_KEY, PRIVATE_KEY_PASSWORD, TIMEOUT
 from .dbconnect import snowflake_connect
 
 from runners import utils
@@ -41,12 +41,7 @@ def retry(f, E=Exception, n=3, log_errors=True, handlers=[]):
 # Connecting
 ###
 
-def preflight_checks(ctx):
-    user_props = dict((x['property'], x['value']) for x in fetch(ctx, f'DESC USER {USER};'))
-    assert user_props.get('DEFAULT_ROLE') != 'null', f"default role on user {USER} must not be null"
-
-
-def connect(run_preflight_checks=True, flush_cache=False, oauth={}):
+def connect(flush_cache=False, oauth={}):
     account = oauth.get('account')
     oauth_refresh_token = oauth.get('refresh_token')
     oauth_access_token = oauth_refresh(account, oauth_refresh_token) if oauth_refresh_token else None
@@ -64,8 +59,11 @@ def connect(run_preflight_checks=True, flush_cache=False, oauth={}):
 
     def connect():
         return connect_db(
-            user=oauth_username or USER,
             account=oauth_account or ACCOUNT,
+            database=DATABASE,
+            user=oauth_username or USER,
+            warehouse=None if oauth_access_token else WAREHOUSE,
+            role=None if oauth_access_token else ROLE,
             token=oauth_access_token,
             private_key=pk,
             authenticator=authenticator,
@@ -75,13 +73,6 @@ def connect(run_preflight_checks=True, flush_cache=False, oauth={}):
 
     try:
         connection = retry(connect)
-
-        if run_preflight_checks:
-            preflight_checks(connection)
-
-        execute(connection, f'USE DATABASE {DATABASE}')
-        if not oauth_access_token:
-            execute(connection, f'USE WAREHOUSE {WAREHOUSE}')
 
         # see SP-1116
         # if not cached_connection and not oauth_access_token:
@@ -126,7 +117,7 @@ def execute(ctx, query=None, fix_errors=True, params=None):
 
     except snowflake.connector.errors.ProgrammingError as e:
         if e.errno == int(MASTER_TOKEN_EXPIRED_GS_CODE):
-            connect(run_preflight_checks=False, flush_cache=True)
+            connect(flush_cache=True)
             return execute(ctx, query, fix_errors, params)
 
         if not fix_errors:
