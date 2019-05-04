@@ -75,8 +75,8 @@ def connect(flush_cache=False, oauth={}):
         connection = retry(connect)
 
         # see SP-1116
-        # if not cached_connection and not oauth_access_token:
-        #     setattr(CACHE, CONNECTION, connection)
+        if not cached_connection and not oauth_access_token:
+            setattr(CACHE, CONNECTION, connection)
 
         return connection
 
