@@ -474,7 +474,7 @@ def create_stored_procedure(name, args, return_type, executor, definition, repla
     for pair in args:
         arguments += f'{pair[0]}, {pair[1]}, '
     arguments = arguments[:-2] + ')'
-    if len(arguments) is 1:
+    if len(arguments) == 1:
         arguments = '()'
     query = f"CREATE {replace}PROCEDURE {name} {arguments}\nRETURNS {return_type}\nLANGUAGE JAVASCRIPT\n"
     query += f"EXECUTE AS {executor} AS\n$$\n{definition}\n$$"
