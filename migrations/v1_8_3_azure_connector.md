@@ -10,9 +10,9 @@ If you'd like to migrate the Azure Log DC, you can do so with a snippet like —
 
 ~~~
 USE ROLE snowalert;
-DROP PIPE data.azure_log_operation_default_pipe;
-DROP STAGE data.azure_log_operation_default_stage;
-ALTER TABLE data.azure_log_operation_default_connection SET COMMENT='
+DROP PIPE data.azure_log_default_operation_default_pipe;
+DROP STAGE data.azure_log_default_operation_default_stage;
+ALTER TABLE data.azure_log_default_operation_connection SET COMMENT='
 ---
 module: azure_log
 ';
