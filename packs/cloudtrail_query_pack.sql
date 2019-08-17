@@ -258,21 +258,55 @@ WHERE 1=1
 --Excessive Compute Resources Requested
 --Needs: definition for excessive based on value type 
 
-SELECT * FROM 
-(SELECT  raw, event_time, value:"instanceType"
+CREATE OR REPLACE VIEW rules.AQ_WKHSSRZ904_ALERT_QUERY COPY GRANTS
+  COMMENT='This alerts on a user requesting excessive resources for an instance
+  ***********NEEDS THRESHOLDS***************
+  @id WKHSSRZ904
+  @tags cloudtrail, aws'
+AS
+SELECT OBJECT_CONSTRUCT('role', roles, 'instance_type', instance_type, 'account_id', raw:"recipientAccountId") AS environment
+     , ARRAY_CONSTRUCT('Cloudtrail') AS sources
+     , raw:"recipientAccountId" AS object
+     , 'Excessive Compute Resources Requested' AS title
+     , EVENT_TIME AS event_time
+     , CURRENT_TIMESTAMP() AS alert_time
+     , 'Actor with role '||roles||' ran ' || raw:"eventName"|| ' requesting instance type '|| instance_type|| ' at '|| alert_time AS description
+     , roles AS actor
+     , raw:"eventName" AS action
+     , 'SnowAlert' AS detector
+     , raw AS event_data
+     , NULL AS handlers
+     , 'low' AS severity
+     , 'WKHSSRZ904' AS query_id
+FROM (
+SELECT  raw, event_time, value:"instanceType" as instance_type, roles
 FROM (
   SELECT distinct response_elements:"instancesSet":"items" as instance_details
-  , raw, event_time
+  , coalesce(user_identity_username
+                , user_identity:"sessionContext":"sessionIssuer":"userName"
+               ) as roles 
+  , raw
+  , event_time
 FROM SNOWALERT.BASE_DATA.CLOUDTRAIL_T 
   WHERE EVENT_TIME >= '2019-08-14' 
   AND event_name in ('RunInstances')
 ), lateral flatten(input=>instance_details)
-where value:"cpuOptions":"coreCount" >= 18 or value:"cpuOptions":"threadsPerCore" >2)
+where value:"cpuOptions":"coreCount" >= 18 or value:"cpuOptions":"threadsPerCore" >2
 UNION ALL
-SELECT distinct raw, event_time, value:"value" FROM (SELECT request_parameters, raw, event_time FROM SNOWALERT.BASE_DATA.CLOUDTRAIL_T 
+SELECT distinct raw, event_time, value:"value", roles FROM (SELECT request_parameters
+  , coalesce(user_identity_username
+                , user_identity:"sessionContext":"sessionIssuer":"userName"
+               ) as roles 
+                                                     , raw, event_time
+                                                     
+                                                     FROM SNOWALERT.BASE_DATA.CLOUDTRAIL_T 
   WHERE EVENT_TIME >= '2019-08-01' 
   AND event_name in ('ModifyInstanceAttribute')), lateral flatten(input=>request_parameters) where path in ('ramdisk', 'instanceType') 
 
+)
+WHERE 1=1
+  AND 2=2
+;
 ;
 
 
@@ -280,8 +314,38 @@ SELECT distinct raw, event_time, value:"value" FROM (SELECT request_parameters, 
 --Not possible
 
 --User Assigned Escalated Policy to Themselves
-    SELECT * FROM
-    (SELECT USER_IDENTITY, coalesce(USER_IDENTITY_USERNAME, regexp_substr(user_identity:"arn", '.*/(.*)$', 1, 1,'e')), RAW, EVENT_TIME, VALUE:"Action" as actions,  VALUE:"Resource" as resources FROM
+CREATE OR REPLACE VIEW rules.AQ_Q8ZKNXX4BOP_ALERT_QUERY COPY GRANTS
+  COMMENT='This alerts on a user applying an iam policy to themselves, their role, or to star
+  @id Q8ZKNXX4BOP
+  @tags cloudtrail, policies'
+AS
+SELECT OBJECT_CONSTRUCT('user_session', user_session, 'role', roles, 'policy', actions, 'resources', resources) AS environment
+     , ARRAY_CONSTRUCT('Cloudtrail') AS sources
+     , RAW:"recipientAccountId" AS object
+     , 'Cloudtrail User Assigned Escalated Policy to Themselves Alert' AS title
+     , event_time AS event_time
+     , CURRENT_TIMESTAMP() AS alert_time
+     , USER_SESSION ||' applied policy ' || ACTIONS || ' to resources '|| RESOURCES || ' at ' || event_time AS description
+     , USER_SESSION AS actor
+     , RAW:"eventName" AS action
+     , 'SnowAlert' AS detector
+     , RAW AS event_data
+     , NULL AS handlers
+     , 'low' AS severity
+     , 'Q8ZKNXX4BOP' AS query_id
+FROM (SELECT USER_IDENTITY
+     , coalesce(USER_IDENTITY_USERNAME
+                , regexp_substr(user_identity:"arn", '.*/(.*?)(\\.([1-9])*)', 1, 1,'e')
+                , regexp_substr(user_identity:"arn", '.*/(.*)$', 1, 1,'e')
+               ) as user_session
+     , coalesce(user_identity_username
+                , user_identity:"sessionContext":"sessionIssuer":"userName"
+               ) as roles 
+     , RAW
+     , EVENT_TIME
+     , VALUE:"Action" as actions
+     ,  VALUE:"Resource" as resources 
+     FROM
     (SELECT parse_json(request_parameters:"policyDocument"):"Statement" as policy_statements
     , user_identity_username, user_identity:"arn"
     , user_identity
@@ -291,7 +355,9 @@ SELECT distinct raw, event_time, value:"value" FROM (SELECT request_parameters, 
     and event_name in ('UpdatePolicy', 'UpdateUserPolicy', 'PutUserPolicy', 'PutRolePolicy', 'PutUserPolicy')
     ), lateral flatten(input=>policy_statements)
      )
-     WHERE ACTIONS ILIKE '%iam:%'
+WHERE 1=1
+  AND ACTIONS ILIKE '%iam:%' and (RESOURCES rlike '.*(:user\\/\\*)".*' or resources ilike '%"*"%' OR RESOURCES ='*' OR RESOURCES ILIKE '%'||ROLES||'%' OR RESOURCES ILIKE '%'||USER_SESSION||'%') 
+    
 ;
 
 --PenTest Toolkit
