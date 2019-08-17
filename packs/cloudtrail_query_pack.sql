@@ -1,0 +1,440 @@
+--Advisory: event times for queries below may or may not be set. Recommended adding event time parameter and running. 
+
+
+--AWS Config Recorder disabled 
+CREATE OR REPLACE VIEW rules.CLOUDTRAIL_CONFIG_DELETION_ALERT_QUERY COPY GRANTS
+  COMMENT='this alert detects the deletion of aws config snapshot recorders or delivery channels
+  @id 3bab686c1ac841c586c2b3d206a81d8b
+  @tags aws, logging, high priority'
+AS
+SELECT OBJECT_CONSTRUCT(
+         'cloud', 'AWS',
+         'deployment', cloudtrail.DEPLOYMENT,
+         'account', cloudtrail.RECIPIENT_ACCOUNT_ID,
+         'account_alias', account_alias
+       ) AS environment
+     , ARRAY_CONSTRUCT('cloudtrail') AS sources
+     , cloudtrail.request_parameters:configurationRecorderName AS object
+     , 'AWS Config Recorder Disabled' AS title
+     , cloudtrail.event_time AS event_time
+     , CURRENT_TIMESTAMP() AS alert_time
+     , (
+         'User ' || CASE
+           WHEN cloudtrail.USER_IDENTITY_TYPE = 'IAMUser'
+           THEN cloudtrail.USER_IDENTITY_USERNAME
+           WHEN cloudtrail.USER_IDENTITY_TYPE = 'Root'
+           THEN 'Root'
+           WHEN cloudtrail.USER_IDENTITY_TYPE = 'AssumedRole'
+           THEN cloudtrail.USER_IDENTITY_SESSION_CONTEXT_SESSION_ISSUER_USER_NAME
+           WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSAccount'
+           THEN cloudtrail.USER_IDENTITY_ACCOUNTID
+           WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSService'
+           THEN cloudtrail.USER_IDENTITY_INVOKEDBY
+         END
+         || ' performed ' || cloudtrail.EVENT_NAME
+         || ' on ' || cloudtrail.REQUEST_PARAMETERS:configurationRecorderName
+         || ', working from ' || CASE
+           WHEN cloudtrail.SOURCE_IP_ADDRESS = '54.213.100.75'
+           THEN 'Dev VPN'
+           WHEN ip_sources.ip_source is not null
+           THEN ip_sources.ip_source
+           ELSE cloudtrail.SOURCE_IP_ADDRESS
+         END
+       ) AS description
+     , CASE
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'IAMUser'
+         THEN cloudtrail.USER_IDENTITY_USERNAME
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'Root'
+         THEN 'Root'
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AssumedRole'
+         THEN cloudtrail.USER_IDENTITY_SESSION_CONTEXT_SESSION_ISSUER_USER_NAME
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSAccount'
+         THEN cloudtrail.USER_IDENTITY_ACCOUNTID
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSService'
+         THEN cloudtrail.USER_IDENTITY_INVOKEDBY
+       END AS actor
+     , cloudtrail.EVENT_NAME AS action
+     , 'SnowAlert' AS detector
+     , cloudtrail.RAW AS eventdata
+     , 'medium' AS severity
+     , '3bab686c1ac841c586c2b3d206a81d8b' AS query_id
+     , 'cloudtrail_config_deletion_v' AS query_name
+     , cloudtrail.raw AS event_data
+FROM data.cloudtrail AS cloudtrail
+LEFT JOIN security.prod.ip_sources AS ip_sources
+  ON security.prod.IS_IN_CIDR(cloudtrail.source_ip_address, ip_sources.cidr)
+WHERE 1=1
+  AND (
+  cloudtrail.EVENT_NAME  = 'DeleteDeliveryChannel'
+  OR cloudtrail.EVENT_NAME  = 'DeleteConfigurationRecorder'
+ )
+;
+
+
+
+--AWS Systems manager Run Command Usage
+CREATE OR REPLACE VIEW rules.CLOUDTRAIL_AWSSM_RUNCOMMAND_ALERT_QUERY COPY GRANTS
+  COMMENT='this alert detects SendCommands to the SSM service, a vector of compromising EC2 instances
+  @id 4363513205bd49ec9bd26bf63acbec72
+  @tags aws, high priority, potential compromise, ec2'
+AS
+SELECT OBJECT_CONSTRUCT(
+         'cloud', 'AWS',
+         'deployment', deployment,
+         'account_alias', account_alias
+       ) AS environment
+     , ARRAY_TO_STRING(request_parameters:instanceIds, ', ') AS object
+     , ARRAY_CONSTRUCT('cloudtrail') AS sources
+     , 'AWS Systems Manager Run Command Usage' AS title
+     , event_time AS event_time
+     , CURRENT_TIMESTAMP() AS alert_time
+     , (
+         CASE
+           WHEN USER_IDENTITY_TYPE = 'IAMUser'
+           THEN USER_IDENTITY_USERNAME
+
+           WHEN USER_IDENTITY_TYPE = 'Root'
+           THEN 'Root'
+
+           WHEN USER_IDENTITY_TYPE = 'AssumedRole'
+           THEN USER_IDENTITY_SESSION_CONTEXT_SESSION_ISSUER_USER_NAME
+
+           WHEN USER_IDENTITY_TYPE = 'AWSAccount'
+           THEN USER_IDENTITY_ACCOUNTID
+
+           WHEN USER_IDENTITY_TYPE = 'AWSService'
+           THEN USER_IDENTITY_INVOKEDBY
+         END || ' used AWS Systems Managed Run Command on ' || object
+       ) AS description
+     , CASE
+         WHEN USER_IDENTITY_TYPE = 'IAMUser'
+         THEN USER_IDENTITY_USERNAME
+
+         WHEN USER_IDENTITY_TYPE = 'Root'
+         THEN 'Root'
+
+         WHEN USER_IDENTITY_TYPE = 'AssumedRole'
+         THEN USER_IDENTITY_SESSION_CONTEXT_SESSION_ISSUER_USER_NAME
+
+         WHEN USER_IDENTITY_TYPE = 'AWSAccount'
+         THEN USER_IDENTITY_ACCOUNTID
+
+         WHEN USER_IDENTITY_TYPE = 'AWSService'
+         THEN USER_IDENTITY_INVOKEDBY
+
+       END AS actor
+     , event_name AS action
+     , 'SnowAlert' AS detector
+     , raw AS event_data
+     , 'high' AS severity
+     , '4363513205bd49ec9bd26bf63acbec72' AS query_id
+     , 'cloudtrail_awssm_runcommand_v' AS query_name
+FROM data.cloudtrail
+WHERE 1=1
+  AND event_source = 'ssm.amazonaws.com'
+  AND event_name = 'SendCommand'
+;
+
+
+--AWS Access Denied for Instance Termination
+CREATE OR REPLACE VIEW rules.AWS_TERMINATE_INSTANCE_ACCESS_DENIED_ALERT_QUERY COPY GRANTS
+  COMMENT='This alert detects users attempting to terminate instances without permission in AWS
+  @id yvoaik0dsvn
+  @tags aws, permissions'
+AS
+SELECT OBJECT_CONSTRUCT(
+              'cloud', 'AWS',
+              'deployment', cloudtrail.DEPLOYMENT,
+              'account', cloudtrail.RECIPIENT_ACCOUNT_ID
+, 'account_alias', account_alias
+           ) AS environment
+     , array_construct('CloudTrail') AS sources
+     , cloudtrail.event_name AS object
+     , 'AWS Access Denied for TerminateInstance' AS title
+     , cloudtrail.event_time AS event_time
+     , CURRENT_TIMESTAMP() AS alert_time
+     , (
+         'Terminate instance operation blocked for user ' || (
+             CASE
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'IAMUser'
+                 THEN cloudtrail.USER_IDENTITY_USERNAME
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'Root'
+                 THEN 'Root'
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'AssumedRole'
+                 THEN cloudtrail.USER_IDENTITY_SESSION_CONTEXT_SESSION_ISSUER_USER_NAME
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSAccount'
+                 THEN cloudtrail.USER_IDENTITY_ACCOUNTID
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSService'
+                 THEN cloudtrail.USER_IDENTITY_INVOKEDBY
+             END
+           ) || ' trying to ' || cloudtrail.EVENT_NAME || ' from ' ||  cloudtrail.SOURCE_IP_ADDRESS
+       ) AS description
+     , CASE
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'IAMUser'
+           THEN cloudtrail.USER_IDENTITY_USERNAME
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'Root'
+           THEN 'Root'
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AssumedRole'
+           THEN cloudtrail.USER_IDENTITY_SESSION_CONTEXT_SESSION_ISSUER_USER_NAME
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSAccount'
+           THEN cloudtrail.USER_IDENTITY_ACCOUNTID
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSService'
+           THEN cloudtrail.USER_IDENTITY_INVOKEDBY
+       END AS actor
+     , cloudtrail.event_name AS action
+     , 'SnowAlert' AS detector
+     , cloudtrail.RAW AS event_data
+     , 'medium' AS severity
+     , 'AWS_TERMINATE_INSTANCE_ACCESS_DENIED' AS query_name
+     , 'yvoaik0dsvn' AS query_id
+FROM data.cloudtrail AS cloudtrail
+WHERE 1=1
+  AND cloudtrail.ERROR_CODE = 'AccessDenied'
+  AND ACTION = 'TerminateInstances'
+;
+
+
+
+--AWS Access Denied for IAM Operation
+CREATE OR REPLACE VIEW rules.AWS_IAM_ACCESS_DENIED_ALERT_QUERY COPY GRANTS
+  COMMENT='This alert detects users attempting to perform actions related to IAM permissions without authorization in AWS
+  @id d839e4d0695c4a9db582c681f87b6ced
+  @tags aws, permissions'
+AS
+SELECT OBJECT_CONSTRUCT(
+              'cloud', 'AWS',
+              'deployment', cloudtrail.DEPLOYMENT,
+              'account', cloudtrail.RECIPIENT_ACCOUNT_ID
+  , 'account_alias', account_alias
+)
+           AS environment
+     , ARRAY_CONSTRUCT('cloudtrail') AS sources
+     , REGEXP_SUBSTR(cloudtrail.ERROR_MESSAGE, 'resource:\\W{1}(.*)$', 1, 1, 'e') AS object
+     , 'AWS Access Denied for IAM Operation' AS title
+     , cloudtrail.event_time AS event_time
+     , CURRENT_TIMESTAMP() AS alert_time
+     , (
+         'IAM operation blocked for user ' || (
+             CASE
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'IAMUser'
+                 THEN cloudtrail.USER_IDENTITY_USERNAME
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'Root'
+                 THEN 'Root'
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'AssumedRole'
+                 THEN cloudtrail.USER_IDENTITY_SESSION_CONTEXT_SESSION_ISSUER_USER_NAME
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSAccount'
+                 THEN cloudtrail.USER_IDENTITY_ACCOUNTID
+               WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSService'
+                 THEN cloudtrail.USER_IDENTITY_INVOKEDBY
+             END
+           ) || ' trying to ' || cloudtrail.EVENT_NAME || ' from ' ||  cloudtrail.SOURCE_IP_ADDRESS
+       ) AS description
+     , CASE
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'IAMUser'
+           THEN cloudtrail.USER_IDENTITY_USERNAME
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'Root'
+           THEN 'Root'
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AssumedRole'
+           THEN cloudtrail.USER_IDENTITY_SESSION_CONTEXT_SESSION_ISSUER_USER_NAME
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSAccount'
+           THEN cloudtrail.USER_IDENTITY_ACCOUNTID
+         WHEN cloudtrail.USER_IDENTITY_TYPE = 'AWSService'
+           THEN cloudtrail.USER_IDENTITY_INVOKEDBY
+       END AS actor
+     , cloudtrail.event_name AS action
+     , 'SnowAlert' AS detector
+     , cloudtrail.RAW AS event_data
+     , 'low' AS severity
+     , 'd839e4d0695c4a9db582c681f87b6ced' AS query_id
+     , 'AWS_IAM_ACCESS_DENIED' AS query_name
+FROM data.cloudtrail AS cloudtrail
+WHERE 1=1
+  AND cloudtrail.ERROR_CODE = 'AccessDenied'
+  AND cloudtrail.event_source = 'iam.amazonaws.com'
+  AND ACTOR != 'snowflake-laceworkcwsrole'
+  AND ACTOR != 'snowflake-caiae-laceworkcwsrole'
+;
+
+--Excessive Compute Resources Requested
+--Needs: definition for excessive based on value type 
+
+SELECT * FROM 
+(SELECT  raw, event_time, value:"instanceType"
+FROM (
+  SELECT distinct response_elements:"instancesSet":"items" as instance_details
+  , raw, event_time
+FROM SNOWALERT.BASE_DATA.CLOUDTRAIL_T 
+  WHERE EVENT_TIME >= '2019-08-14' 
+  AND event_name in ('RunInstances')
+), lateral flatten(input=>instance_details)
+where value:"cpuOptions":"coreCount" >= 18 or value:"cpuOptions":"threadsPerCore" >2)
+UNION ALL
+SELECT distinct raw, event_time, value:"value" FROM (SELECT request_parameters, raw, event_time FROM SNOWALERT.BASE_DATA.CLOUDTRAIL_T 
+  WHERE EVENT_TIME >= '2019-08-01' 
+  AND event_name in ('ModifyInstanceAttribute')), lateral flatten(input=>request_parameters) where path in ('ramdisk', 'instanceType') 
+
+;
+
+
+--Impossible Travel for Console Login
+--Not possible
+
+--User Assigned Escalated Policy to Themselves
+    SELECT * FROM
+    (SELECT USER_IDENTITY, coalesce(USER_IDENTITY_USERNAME, regexp_substr(user_identity:"arn", '.*/(.*)$', 1, 1,'e')), RAW, EVENT_TIME, VALUE:"Action" as actions,  VALUE:"Resource" as resources FROM
+    (SELECT parse_json(request_parameters:"policyDocument"):"Statement" as policy_statements
+    , user_identity_username, user_identity:"arn"
+    , user_identity
+    , raw, event_time
+    FROM SNOWALERT.BASE_DATA.CLOUDTRAIL_T
+    WHERE EVENT_TIME >= '2019-08-01' 
+    and event_name in ('UpdatePolicy', 'UpdateUserPolicy', 'PutUserPolicy', 'PutRolePolicy', 'PutUserPolicy')
+    ), lateral flatten(input=>policy_statements)
+     )
+     WHERE ACTIONS ILIKE '%iam:%'
+;
+
+--PenTest Toolkit
+--Currnetly not possible
+
+
+;
+
+
+--Possible EC2 Backdoor Shell Script
+--EC2 Startup shell script
+
+CREATE OR REPLACE VIEW rules.AWS_EC2_STARTUP_SHELL_SCRIPT_ALERT_QUERY COPY GRANTS
+COMMENT='This alert detects startup scripts getting added to EC2 instances, which is a vector for persistent compromise of an instance
+@id f15346a9c9684abe85993a233d27f8ba
+@tags aws, ec2, potential compromise, logon scripts'
+AS;
+SELECT OBJECT_CONSTRUCT(
+  'cloud', 'AWS',
+  'account', cloudtrail.recipientaccountid
+) AS environment
+, ARRAY_CONSTRUCT('Cloudtrail') AS sources
+, IFF(cloudtrail.REQUESTPARAMETERS:instanceId IS NOT NULL,
+      cloudtrail.REQUESTPARAMETERS:instanceId,
+      cloudtrail.REQUESTPARAMETERS
+) AS object
+, 'Possible EC2 Startup Shell Script' AS title
+, cloudtrail.eventtime AS event_time
+, CURRENT_TIMESTAMP() AS alert_time
+, ('User ' ||
+     CASE
+   WHEN cloudtrail.USERIDENTITY:"Type" = 'IAMUser' THEN cloudtrail.USERIDENTITY:"userName"
+   WHEN cloudtrail.USERIDENTITY:"Type" = 'Root' THEN 'Root'
+   WHEN cloudtrail.USERIDENTITY:"Type" = 'AssumedRole' THEN cloudtrail.USERIDENTITY:"sessionContext":"sessionIssuer":"userName"
+   WHEN cloudtrail.USERIDENTITY:"Type" = 'AWSAccount' THEN cloudtrail.USERIDENTITY:"accountId"
+   WHEN cloudtrail.USERIDENTITY:"Type" = 'AWSService' THEN cloudtrail.USERIDENTITY:"invokedBy"
+   END
+   || ' modified the startup shell script, an action associated with instance compromise, on '  ||
+     IFF(cloudtrail.REQUESTPARAMETERS:instanceId IS NOT NULL,
+         cloudtrail.REQUESTPARAMETERS:instanceId,
+         cloudtrail.REQUESTPARAMETERS
+     ) || ', working from ' ||
+     cloudtrail.SOURCEIPADDRESS
+   
+) AS description
+, CASE
+WHEN cloudtrail.USERIDENTITY:"Type" = 'IAMUser' THEN cloudtrail.USERIDENTITY:"userName"
+WHEN cloudtrail.USERIDENTITY:"Type" = 'Root' THEN 'Root'
+WHEN cloudtrail.USERIDENTITY:"Type" = 'AssumedRole' THEN cloudtrail.USERIDENTITY:"sessionContext":"sessionIssuer":"userName"
+WHEN cloudtrail.USERIDENTITY:"Type" = 'AWSAccount' THEN cloudtrail.USERIDENTITY:"accountId"
+WHEN cloudtrail.USERIDENTITY:"Type" = 'AWSService' THEN cloudtrail.USERIDENTITY:"invokedBy"
+END AS actor
+, cloudtrail.eventname AS action
+, 'SnowAlert' AS detector
+, object_construct(*) AS event_data
+, 'high' AS severity
+, 'f15346a9c9684abe85993a233d27f8ba' AS query_id
+, 'aws_ec2_startup_shell_script_v' AS query_name
+FROM XXX cloudtrail
+
+WHERE 1=1 AND EVENTTIME>=dateadd(minute,-1,current_timestamp)
+AND cloudtrail.eventsource  = 'ec2.amazonaws.com'
+AND cloudtrail.eventname = 'ModifyInstanceAttribute'
+AND cloudtrail.requestparameters:userData IS NOT NULL
+;
+
+--User Logging in Without MFA
+CREATE OR REPLACE VIEW rules.AWS_CONSOLE_WITHOUT_MFA_ALERT_QUERY COPY GRANTS
+  COMMENT='
+  @id ETV1GDUPBSR
+  @tags aws, login, mfa, successfulActivity'
+AS;
+SELECT OBJECT_CONSTRUCT('cloud', 'aws', 'region', awsregion, 'account_id', recipientAccountId, 'user_identity_type', useridentity:"Type", 'principal_id_of_user', useridentity:"principalId") AS environment
+     , ARRAY_CONSTRUCT('Cloudtrail') AS sources
+     , recipientAccountId AS object
+     , 'AWS Console Login without MFA' AS title
+     , eventtime AS event_time
+     , CURRENT_TIMESTAMP() AS alert_time
+     , 'AWS Console without MFA with status:'||responseelements:"ConsoleLogin" AS description
+     , coalesce(useridentity:"userName", useridentity:"arn") AS actor
+     , responseelements:"ConsoleLogin" AS action
+     , 'SnowAlert' AS detector
+     , OBJECT_CONSTRUCT(*) AS event_data
+     , 'low' AS severity
+     , 'ETV1GDUPBSR' AS query_id
+FROM --(
+--, additionalEventData:"LoginTo"
+--, aws_region
+--, coalesce(deployment, recipientAccountId) as account
+--, responseelements:"ConsoleLogin" as successful_login
+--, useridentity:"principalId" as principal_id
+--, coalesce(useridentity:"userName", useridentity:"arn") as username
+--, useridentity:"Type" as user_identity_type
+--, user_identity
+
+XXX
+WHERE 1=1
+and eventtime >= dateadd(day, -1, current_timestamp)
+and eventname = 'ConsoleLogin' 
+and responseelements:"ConsoleLogin" != 'Failure'
+AND USERIDENTITY:"Type" = 'IAMUser'
+and (parse_json(additionalEventData):"MFAUsed" != 'Yes' or parse_json(additionalEventData):"MFAUsed" is null) 
+and (parse_json(additionalEventData):"SamlProviderArn" != 'arn:aws:iam::087354435437:saml-provider/Okta' 
+     or parse_json(additionalEventData):"SamlProviderArn" is null
+    )
+
+;
+
+--Root Account Activity
+CREATE OR REPLACE VIEW rules.CLOUDTRAIL_ROOT_ACTIVITY_ALERT_QUERY COPY GRANTS
+  COMMENT='This alert detects activity by the root user in AWS, something which should never happen expcept under very specific and well-documented circumstances
+  @id 33856532b3954b18b21ad1b3bc64cdd3
+  @tags aws, high priority, potential compromise, admin activity'
+AS;
+SELECT OBJECT_CONSTRUCT(
+         'cloud', 'AWS',
+         'account', cloudtrail.recipientaccountid,
+         'region', cloudtrail.awsregion
+       ) AS environment
+     , ARRAY_CONSTRUCT('Cloudtrail') AS sources
+     , 'AWS Root Account' AS object
+     , 'Activity by Root' AS title
+     , cloudtrail.eventtime AS event_time
+     , CURRENT_TIMESTAMP() AS alert_time
+     , (
+         'User root performed ' || cloudtrail.eventname
+         || ', working from ' || cloudtrail.sourceipaddress
+        
+       ) AS description
+     , 'root' AS actor
+     , cloudtrail.EVENTNAME AS action
+     , 'SnowAlert' AS detector
+     , object_construct(cloudtrail.*) AS event_data
+     , 'critical' AS severity
+     , '33856532b3954b18b21ad1b3bc64cdd3' AS query_id
+     , 'cloudtrail_root_activity_v' AS query_name
+FROM XXX AS cloudtrail
+--LEFT JOIN security.prod.ip_sources AS ip_sources
+--  ON security.prod.is_in_cidr(cloudtrail.source_ip_address, ip_sources.cidr)
+WHERE 1=1 and eventtime >='2019-08-14'
+  AND cloudtrail.useridentity:"Type" = 'Root'
+ -- AND cloudtrail.source_ip_address <> 'support.amazonaws.com'
+;
+
+
+
