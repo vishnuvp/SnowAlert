@@ -1,6 +1,6 @@
 import * as React from 'react';
 import {RouterState} from 'react-router-redux';
-import {Connector} from '../store/data';
+import {Connector, Baseline} from '../store/data';
 import {Policy, Query, Suppression} from '../store/rules';
 
 export interface AuthDetails {
@@ -85,6 +85,12 @@ export interface ConnectorPayload {
   placeholder: string;
 }
 
+export interface BaselinePayload {
+  baseline: string;
+  options: ReadonlyArray<any>;
+  docstring: string;
+}
+
 export interface FlowPayload {
   name: string;
   connector: string;
@@ -92,6 +98,7 @@ export interface FlowPayload {
 
 export interface SAData {
   connectors: ReadonlyArray<ConnectorPayload>;
+  baselines: ReadonlyArray<BaselinePayload>;
   flows: ReadonlyArray<FlowPayload>;
 }
 
@@ -104,6 +111,7 @@ export interface SADataState {
   readonly connectionMessage: string | null;
   readonly connectors: ReadonlyArray<Connector>;
   readonly connectionStage: ConnectionStage;
+  readonly baselines: ReadonlyArray<Baseline>;
 }
 
 export interface State {

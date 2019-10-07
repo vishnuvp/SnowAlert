@@ -14,7 +14,7 @@ import {
   SADataState,
   State,
 } from './types';
-import {Connector} from '../store/data';
+import {Connector, Baseline} from '../store/data';
 
 export const initialState: SADataState = {
   isFetching: false,
@@ -23,6 +23,7 @@ export const initialState: SADataState = {
   connectionStage: 'start',
   connectionMessage: null,
   connectors: [],
+  baselines: [],
 };
 
 export const data: Reducer<SADataState> = (state = initialState, action: DataActions) => {
@@ -40,11 +41,12 @@ export const data: Reducer<SADataState> = (state = initialState, action: DataAct
       };
     }
     case LOAD_SA_DATA_SUCCESS: {
-      const {connectors} = action.payload;
+      const {connectors, baselines} = action.payload;
       return {
         ...state,
         isFetching: false,
         connectors: connectors.map(c => new Connector(c)),
+        baselines: baselines.map(c => new Baseline(c)),
       };
     }
     case CHANGE_CONNECTOR_SELECTION: {

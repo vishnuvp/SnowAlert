@@ -1,11 +1,13 @@
-from flask import Blueprint, jsonify, request
 from functools import wraps
+from os import environ
 
+from flask import Blueprint, jsonify, request
 import json
 import logbook
 import importlib
 
 from connectors import CONNECTION_OPTIONS
+from baselines import BASELINE_OPTIONS
 from runners.helpers import db, dbconfig, vault, log
 from runners.utils import format_exception_only
 
@@ -13,10 +15,12 @@ logger = logbook.Logger(__name__)
 
 data_api = Blueprint('data', __name__)
 
+SECRET = environ.get("SA_SECRET", "")
+
 
 @data_api.route('/', methods=['GET'])
 def get_data():
-    return jsonify(connectors=CONNECTION_OPTIONS)
+    return jsonify(connectors=CONNECTION_OPTIONS, baselines=BASELINE_OPTIONS)
 
 
 @data_api.route('/connectors', methods=['GET'])

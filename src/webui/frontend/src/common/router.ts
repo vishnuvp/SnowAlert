@@ -47,6 +47,9 @@ export const getRouterData = () => {
     [routes.ALERTS]: {
       component: dynamicWrapper(() => import('../routes/Dashboard/Alerts')),
     },
+    [routes.BASELINES]: {
+      component: dynamicWrapper(() => import('../routes/Dashboard/Baselines')),
+    },
     [routes.VIOLATIONS]: {
       component: dynamicWrapper(() => import('../routes/Dashboard/Violations')),
     },
