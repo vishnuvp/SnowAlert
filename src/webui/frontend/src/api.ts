@@ -124,6 +124,12 @@ export const createConnector = (connector: string, name: string, options: any) =
     .then(handleResponse)
     .catch(handleError);
 
+export const createBaseline = (baseline: string, options: any) =>
+  axios
+    .post(`/api/sa/data/baselines/${baseline}`, options, {headers: authHeader()})
+    .then(handleResponse)
+    .catch(handleError);
+
 export const finalizeConnector = (connector: string, name: string) =>
   axios
     .post(`/api/sa/data/connectors/${connector}/${name}/finalize`, {}, {headers: authHeader()})

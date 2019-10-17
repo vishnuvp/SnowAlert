@@ -29,10 +29,14 @@ export class Connector {
 export class Baseline {
   raw: BaselinePayload;
   title: string;
+  baseline: string;
   description: string;
+  options: any[];
 
   constructor(bl: BaselinePayload) {
     this.raw = bl;
+    this.baseline = bl.baseline;
+    this.options = bl.options.slice();
     this.title = (bl.docstring || 'title missing').replace(/\n.*/g, '');
     this.description = (bl.docstring || '').replace(/^[^\n]*\n/g, '');
   }

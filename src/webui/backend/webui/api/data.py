@@ -115,3 +115,26 @@ def post_connector_finalize(connector, name):
 def post_connector_test(connector, name):
     connector = importlib.import_module(f"connectors.{connector}")
     return list(connector.test(name))
+
+
+@data_api.route('/baselines/<baseline>', methods=['POST'])
+@cache_oauth_connection
+@jsonified
+def create_baseline(baseline):
+    options = request.get_json()
+    baseline = importlib.import_module(f"baselines.{baseline}")
+
+    required_options = {
+        o['name']: o for o in baseline.OPTIONS if o.get('required')
+    }
+    missing_option_names = set(required_options) - set(options)
+    if missing_option_names:
+        missing_options = [required_options[n] for n in missing_option_names]
+        missing_titles = set(o.get('title', o['name']) for o in missing_options)
+        missing_titles_str = '\n  - ' + '\n  - '.join(missing_titles)
+        return {
+            'success': False,
+            'errorMessage': f"Missing required configuration options:{missing_titles_str}",
+        }
+
+    return {}

@@ -45,6 +45,28 @@ export const loadSAData = () => async (dispatch: Dispatch, getState: GetState) =
   }
 };
 
+// select baseline
+export const CHANGE_BASELINE_SELECTION = 'CHANGE_BASELINE_SELECTION';
+type ChangeBaselineSelectionAction = ActionWithPayload<typeof CHANGE_BASELINE_SELECTION, string | null>;
+export const selectBaseline = (name: string | null) => async (dispatch: Dispatch) => {
+  dispatch(createAction(CHANGE_BASELINE_SELECTION, name));
+};
+
+// create new baseline
+export const CREATE_BASELINE = 'CREATE_BASELINE';
+export const BASELINE_CREATE_SUCCESS = 'BASELINE_CREATE_SUCCESS';
+export const BASELINE_CREATE_ERROR = 'BASELINE_CREATE_ERROR';
+type CreateBaselineAction = ActionWithPayload<typeof CREATE_BASELINE, {baseline: string; options: any}>;
+export const createBaseline = (baseline: string, options: any) => async (dispatch: Dispatch) => {
+  dispatch(createAction(CREATE_BASELINE, {baseline, options}));
+  const response = await api.createBaseline(baseline, options);
+  if (response.success) {
+    dispatch(createAction(BASELINE_CREATE_SUCCESS, response));
+  } else {
+    dispatch(createAction(BASELINE_CREATE_ERROR, {message: response.errorMessage}));
+  }
+};
+
 export const CHANGE_CONNECTOR_SELECTION = 'CHANGE_CONNECTOR_SELECTION';
 type ChangeConnectorSelectionAction = ActionWithPayload<typeof CHANGE_CONNECTOR_SELECTION, string | null>;
 export const selectConnector = (name: string | null) => async (dispatch: Dispatch) => {
@@ -121,7 +143,9 @@ export const testConnection = (connector: string, name: string) => async (dispat
 export type DataActions =
   | LoadDataActions
   | ChangeConnectorSelectionAction
+  | ChangeBaselineSelectionAction
   | NewConnectionAction
+  | CreateBaselineAction
   | FinalizeConnectionAction
   | TestConnectionAction
   | ConnectionStageCompleteAction

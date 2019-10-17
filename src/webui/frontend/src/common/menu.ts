@@ -7,12 +7,6 @@ function isNotNull<T>(value: T | null): value is T {
 
 const menuData: stateTypes.MenuData = [
   {
-    name: 'Baselines',
-    icon: 'line-chart',
-    path: 'dashboard/baselines',
-    roles: [roles.ADMIN, roles.USER],
-  },
-  {
     name: 'Data Connectors',
     icon: 'api',
     path: 'dashboard/connectors',

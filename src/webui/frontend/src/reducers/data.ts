@@ -4,6 +4,7 @@ import {
   LOAD_SA_DATA_REQUEST,
   LOAD_SA_DATA_SUCCESS,
   LOAD_SA_DATA_FAILURE,
+  CHANGE_BASELINE_SELECTION,
   CHANGE_CONNECTOR_SELECTION,
   CHANGE_CONNECTION_STAGE,
   CHANGE_CONNECTION_STAGE_ERROR,
@@ -47,6 +48,13 @@ export const data: Reducer<SADataState> = (state = initialState, action: DataAct
         isFetching: false,
         connectors: connectors.map(c => new Connector(c)),
         baselines: baselines.map(c => new Baseline(c)),
+      };
+    }
+    case CHANGE_BASELINE_SELECTION: {
+      const selection = action.payload;
+      return {
+        ...state,
+        selected: selection,
       };
     }
     case CHANGE_CONNECTOR_SELECTION: {
