@@ -121,12 +121,13 @@ def post_connector_test(connector, name):
 @cache_oauth_connection
 @jsonified
 def create_baseline(baseline):
-    options = request.get_json()
-    baseline = importlib.import_module(f"baselines.{baseline}")
+    options_from_request = request.get_json()
 
-    required_options = {
-        o['name']: o for o in baseline.OPTIONS if o.get('required')
-    }
+    baseline = importlib.import_module(f"baselines.{baseline}")
+    options = {o['name']: o['default'] for o in baseline.OPTIONS if 'default' in o}
+    options.update(options_from_request)
+
+    required_options = {o['name']: o for o in baseline.OPTIONS if o.get('required')}
     missing_option_names = set(required_options) - set(options)
     if missing_option_names:
         missing_options = [required_options[n] for n in missing_option_names]
@@ -137,4 +138,6 @@ def create_baseline(baseline):
             'errorMessage': f"Missing required configuration options:{missing_titles_str}",
         }
 
-    return {}
+    return {
+        'completed': baseline.create(options)
+    }

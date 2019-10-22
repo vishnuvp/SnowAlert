@@ -6,16 +6,9 @@ Compare the count of events in a window to percentiles of counts in prior window
 from typing import List
 
 from runners.helpers import db
+from runners.helpers.dbconfig import WAREHOUSE
 
 OPTIONS = [
-    {
-        'name': 'window_size',
-        'title': "Window Size",
-        'prompt': "Length of time count and compare (e.g. 24h, 7d)",
-        'type': 'text',
-        'default': "24h",
-        'required': True,
-    },
     {
         'name': 'history_size',
         'title': "History Size",
@@ -24,14 +17,13 @@ OPTIONS = [
         'default': "30",
         'required': True,
     },
-    # {
-    #     'name': 'drop_zeros',
-    #     'title': "Drop Zeros",
-    #     'prompt': "Ignore empty windows when calculating percentiles",
-    #     'type': 'bool',
-    #     'default': "30d",
-    #     'required': True,
-    # },
+    {
+        'type': 'text',
+        'name': 'groups',
+        'title': "Group By Column",
+        'prompt': "For ananlyzing groups",
+        'default': "",
+    },
 ]
 
 COUNT_HOURLY_TABLE_SQL = """
@@ -95,7 +87,7 @@ VALUES (
 COUNT_HOURLY_TASK_SQL = f"""
 CREATE OR REPLACE TASK {{base_table}}_count_hourly
   SCHEDULE='USING CRON 0 * * * * UTC'
-  WAREHOUSE=snowalert_warehouse
+  WAREHOUSE={WAREHOUSE}
 AS
 {COUNT_HOURLY_MERGE_SQL}
 """
@@ -164,8 +156,9 @@ def generate_baseline_sql(
         'SELECT CURRENT_USER()',
         'SELECT CURRENT_ROLE()',
         COUNT_HOURLY_TABLE_SQL.format(base_table=base_table),
-        # COUNT_HOURLY_MERGE_SQL.format(base_table=base_table, groups=groups_sql, days=days),
-        COUNT_HOURLY_TASK_SQL.format(base_table=base_table, groups=groups_sql, days=days),
+        COUNT_HOURLY_TASK_SQL.format(
+            base_table=base_table, groups=groups_sql, days=days
+        ),
         f'ALTER TASK {base_table}_count_hourly RESUME',
         BASIC_BASELINE_VIEW.format(base_table=base_table, days=days),
     ]
@@ -173,7 +166,6 @@ def generate_baseline_sql(
 
 def create(options):
     base_table = options['base_table']
-    groups = options.get('groups', '').split('\n')
-    days = int(options.get('days', '0'))
-    for sql in generate_baseline_sql(base_table, groups, days):
-        print(next(db.fetch(sql)))
+    groups = [g.strip() for g in options.get('groups', '').split(',')]
+    days = int(options.get('history_size', '30'))
+    return [db.fetch(sql) for sql in generate_baseline_sql(base_table, groups, days)]

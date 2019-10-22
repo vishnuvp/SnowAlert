@@ -50,7 +50,7 @@ class Baselines extends React.Component<BaselinesProps, OwnState> {
   findBaseline(title: string | null = null) {
     const {baselines, selected} = this.props.data;
     const toFind = title || selected;
-    return baselines.find(b => b.title === toFind);
+    return baselines.find(b => b.baseline === toFind);
   }
 
   changeOption(name: string, value: string) {
@@ -71,8 +71,8 @@ class Baselines extends React.Component<BaselinesProps, OwnState> {
     if (selectedBaseline) {
       options = [
         {
-          name: 'target',
-          title: 'Target Table',
+          name: 'base_table',
+          title: 'Base Table',
           prompt: 'Table with the data we will be baselining',
           default: 'data.',
           required: true,
