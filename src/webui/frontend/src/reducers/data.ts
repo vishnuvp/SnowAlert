@@ -9,6 +9,8 @@ import {
   CHANGE_CONNECTION_STAGE,
   CHANGE_CONNECTION_STAGE_ERROR,
   CHANGE_CONNECTION_STAGE_DISMISS_ERROR,
+  CREATE_BASELINE_SUCCESS,
+  CREATE_BASELINE_ERROR,
 } from '../actions/data';
 import {
   // SAData,
@@ -55,6 +57,17 @@ export const data: Reducer<SADataState> = (state = initialState, action: DataAct
       return {
         ...state,
         selected: selection,
+      };
+    }
+    case CREATE_BASELINE_SUCCESS: {
+      return {
+        ...state,
+      };
+    }
+    case CREATE_BASELINE_ERROR: {
+      return {
+        ...state,
+        errorMessage: JSON.stringify(action.payload),
       };
     }
     case CHANGE_CONNECTOR_SELECTION: {

@@ -97,20 +97,16 @@ CREATE OR REPLACE VIEW {base_table}_pct_baseline AS
 SELECT * FROM (
   SELECT slice_start hour
        , groups
-       , count_24h n
+       , n
        , APPROX_PERCENTILE(n, .01) OVER (PARTITION BY groups) AS pct01
        , APPROX_PERCENTILE(n, .05) OVER (PARTITION BY groups) AS pct05
        , APPROX_PERCENTILE(n, .10) OVER (PARTITION BY groups) AS pct10
+       , APPROX_PERCENTILE(n, .50) OVER (PARTITION BY groups) AS pct50
        , APPROX_PERCENTILE(n, .90) OVER (PARTITION BY groups) AS pct90
        , APPROX_PERCENTILE(n, .95) OVER (PARTITION BY groups) AS pct95
        , APPROX_PERCENTILE(n, .99) OVER (PARTITION BY groups) AS pct99
   FROM (
-    SELECT SUM(n) OVER (
-             PARTITION BY groups
-             ORDER BY slice_start
-             ROWS BETWEEN 24 PRECEDING
-                      AND 1 PRECEDING
-           ) count_24h
+    SELECT n
          , slice_start
          , groups
     FROM (
@@ -129,13 +125,13 @@ SELECT * FROM (
         CROSS JOIN (
           SELECT slice_start, slice_end
           FROM TABLE(TIME_SLICES_BEFORE_T(
-            {days}*24, 60*60, DATE_TRUNC(HOUR, CURRENT_TIMESTAMP)
+            {days} * 24, 60 * 60, DATE_TRUNC(HOUR, CURRENT_TIMESTAMP)
           ))
         ) t
       )
       USING (groups, slice_start, slice_end)
     )
-    WHERE slice_start > DATEADD(HOUR, -24 * ({days} + 1), DATE_TRUNC(HOUR, CURRENT_TIMESTAMP))
+    WHERE slice_start > DATEADD(HOUR, -24 * {days}, DATE_TRUNC(HOUR, CURRENT_TIMESTAMP))
   )
   WHERE count_24h IS NOT NULL
   ORDER BY slice_start DESC
