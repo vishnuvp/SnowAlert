@@ -100,7 +100,7 @@ class Connectors extends React.Component<ConnectorsProps, OwnState> {
     return selectedConnector ? (
       <div>
         <Modal
-          title={`Error Creating ${connectionStage} Connection`}
+          title={`Error Creating ${selectedConnector.title} Connection`}
           visible={!!errorMessage}
           centered={true}
           closable={false}

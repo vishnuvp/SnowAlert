@@ -1,4 +1,4 @@
-import {Button, Card, Icon, Input, List, Select} from 'antd';
+import {Button, Card, Icon, Input, List, Modal, Select} from 'antd';
 import React from 'react';
 import {connect} from 'react-redux';
 import {bindActionCreators, Dispatch} from 'redux';
@@ -61,7 +61,7 @@ class Baselines extends React.Component<BaselinesProps, OwnState> {
   }
 
   render() {
-    const {baselines} = this.props.data;
+    const {baselines, baselineResults, errorMessage} = this.props.data;
 
     const {optionValues} = this.state;
 
@@ -81,8 +81,42 @@ class Baselines extends React.Component<BaselinesProps, OwnState> {
       ];
     }
 
+    if (baselineResults) {
+      return (
+        <div>
+          <h2 style={{marginBottom: 16}}>
+            <Icon type="check-circle" theme="twoTone" twoToneColor="#52c41a" /> Baseline Created
+          </h2>
+          <List
+            size="large"
+            dataSource={baselineResults.concat()}
+            renderItem={(r: string) => (
+              <List.Item style={{paddingLeft: 16}}>
+                <Icon type="check" style={{color: '#52c41a'}} /> {r}
+              </List.Item>
+            )}
+            bordered
+          />
+        </div>
+      );
+    }
+
     return selectedBaseline ? (
       <div>
+        <Modal
+          title={`Error Creating Baseline`}
+          visible={!!errorMessage}
+          centered={true}
+          closable={false}
+          footer={[
+            <Button key="ok" type="primary" onClick={() => this.props.dismissErrorMessage()}>
+              Ok
+            </Button>,
+          ]}
+        >
+          <pre>{errorMessage}</pre>
+        </Modal>
+
         <h1>Creating {selectedBaseline.title}</h1>
         <List
           itemLayout="vertical"

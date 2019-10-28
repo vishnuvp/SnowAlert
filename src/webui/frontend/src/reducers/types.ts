@@ -109,6 +109,7 @@ export interface SADataState {
   readonly selected: string | null;
   readonly errorMessage: string | null;
   readonly connectionMessage: string | null;
+  readonly baselineResults: ReadonlyArray<string> | null;
   readonly connectors: ReadonlyArray<Connector>;
   readonly connectionStage: ConnectionStage;
   readonly baselines: ReadonlyArray<Baseline>;

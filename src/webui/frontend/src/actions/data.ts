@@ -57,13 +57,13 @@ export const CREATE_BASELINE = 'CREATE_BASELINE';
 export const CREATE_BASELINE_SUCCESS = 'CREATE_BASELINE_SUCCESS';
 export const CREATE_BASELINE_ERROR = 'CREATE_BASELINE_ERROR';
 type CreateBaselineAction = ActionWithPayload<typeof CREATE_BASELINE, {baseline: string; options: any}>;
-type CreateBaselineSuccessAction = ActionWithPayload<typeof CREATE_BASELINE_SUCCESS, {baseline: string; options: any}>;
-type CreateBaselineErrorAction = ActionWithPayload<typeof CREATE_BASELINE_ERROR, {baseline: string; options: any}>;
+type CreateBaselineSuccessAction = ActionWithPayload<typeof CREATE_BASELINE_SUCCESS, {newResults: any}>;
+type CreateBaselineErrorAction = ActionWithPayload<typeof CREATE_BASELINE_ERROR, {message: string}>;
 export const createBaseline = (baseline: string, options: any) => async (dispatch: Dispatch) => {
   dispatch(createAction(CREATE_BASELINE, {baseline, options}));
   const response = await api.createBaseline(baseline, options);
   if (response.success) {
-    dispatch(createAction(CREATE_BASELINE_SUCCESS, response));
+    dispatch(createAction(CREATE_BASELINE_SUCCESS, {newResults: response.results}));
   } else {
     dispatch(createAction(CREATE_BASELINE_ERROR, {message: response.errorMessage}));
   }

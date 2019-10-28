@@ -123,6 +123,9 @@ def post_connector_test(connector, name):
 def create_baseline(baseline):
     options_from_request = request.get_json()
 
+    if 'base_table' not in options_from_request:
+        raise RuntimeError('please specify a target table')
+
     baseline = importlib.import_module(f"baselines.{baseline}")
     options = {o['name']: o['default'] for o in baseline.OPTIONS if 'default' in o}
     options.update(options_from_request)
@@ -139,5 +142,5 @@ def create_baseline(baseline):
         }
 
     return {
-        'completed': baseline.create(options)
+        'results': baseline.create(options)
     }

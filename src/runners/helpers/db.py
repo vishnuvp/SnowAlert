@@ -404,6 +404,23 @@ def insert_violations_query_run(query_name, ctx=None) -> Tuple[int, int]:
     return num_rows_inserted
 
 
+def dict_to_sql(d: Optional[dict], indent=0) -> str:
+    indent_sql = ' ' * indent
+    return (
+        'NULL'
+        if d is None
+        else 'OBJECT_CONSTRUCT()'
+        if d == {}
+        else '\n'.join(
+            [
+                'OBJECT_CONSTRUCT(',
+                f', '.join(f"  '{k}', {v}\n" for k, v in d.items()),
+                f')',
+            ]
+        )
+    ).replace('\n', f'\n{indent_sql}')
+
+
 def value_to_sql(v):
     if type(v) is str:
         return f"'{v}'"

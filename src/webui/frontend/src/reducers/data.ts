@@ -27,6 +27,7 @@ export const initialState: SADataState = {
   connectionMessage: null,
   connectors: [],
   baselines: [],
+  baselineResults: null,
 };
 
 export const data: Reducer<SADataState> = (state = initialState, action: DataActions) => {
@@ -60,14 +61,16 @@ export const data: Reducer<SADataState> = (state = initialState, action: DataAct
       };
     }
     case CREATE_BASELINE_SUCCESS: {
+      const {newResults} = action.payload;
       return {
         ...state,
+        baselineResults: newResults,
       };
     }
     case CREATE_BASELINE_ERROR: {
       return {
         ...state,
-        errorMessage: JSON.stringify(action.payload),
+        errorMessage: action.payload.message,
       };
     }
     case CHANGE_CONNECTOR_SELECTION: {
