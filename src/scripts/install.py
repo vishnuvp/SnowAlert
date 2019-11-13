@@ -519,6 +519,13 @@ def main(
 
     ctx, account, region, do_attempt = login(configuration)
 
+    def do_print(title, sql):
+        print(f'-- {title}')
+        if type(sql) is str:
+            sql = [sql]
+        for statement in sql:
+            print(f'{statement}\n')
+
     if admin_role:
         do_attempt(f"Use role {admin_role}", f"USE ROLE {admin_role}")
 
@@ -543,6 +550,10 @@ def main(
     if admin_role == "accountadmin":
         setup_warehouse_and_db(do_attempt)
         setup_user_and_role(do_attempt)
+    else:
+        print("Please ask admin to run:\n")
+        setup_warehouse_and_db(do_print)
+        setup_user_and_role(do_print)
 
     setup_schemas_and_tables(do_attempt, DATABASE)
 
@@ -571,7 +582,7 @@ def main(
             f"ALTER USER {USER} SET rsa_public_key='{rsa_public_key}'",
         )
     else:
-        print("Please ask account admin to run:\n\n", f"  ALTER USER {USER} SET rsa_public_key='{rsa_public_key}'")
+        print("Please ask admin to run:\n\n", f"  ALTER USER {USER} SET rsa_public_key='{rsa_public_key}'")
 
     aws_key, aws_secret = load_aws_config()
 
